@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth0 Login</title>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .box {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 24px; font-size: 14px; }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .signup { background: #48bb78; color: white; }
+        .signup:hover { background: #38a169; }
+        .login { background: #667eea; color: white; }
+        .login:hover { background: #5568d3; }
+        .logout { background: #f56565; color: white; }
+        .logout:hover { background: #e53e3e; }
+        #profile { 
+            display: none; 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: #f7fafc; 
+            border-radius: 8px;
+            text-align: left;
+        }
+        #profile h3 { color: #667eea; margin-bottom: 10px; }
+        #profile p { margin: 4px 0; font-size: 14px; color: #4a5568; }
+        .error { color: #e53e3e; margin-bottom: 16px; font-size: 14px; }
+        .loading { color: #667eea; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔐 Auth System</h1>
+        <p>Secure Login with Auth0</p>
+        
+        <div id="loading" class="loading">Loading...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="buttons" style="display: none;">
+            <button class="signup" onclick="signup()">Sign Up</button>
+            <button class="login" onclick="login()">Log In</button>
+        </div>
+        
+        <div id="profile">
+            <h3>✅ Welcome!</h3>
+            <p id="name"></p>
+            <p id="email"></p>
+            <button class="logout" onclick="logout()">Log Out</button>
+        </div>
+    </div>
+
+    <script>
+        // Config will be loaded from Vercel API
+        let auth0Client = null;
+        let config = null;
+
+        async function loadConfig() {
+            try {
+                // Fetch config from Vercel serverless function
+                const res = await fetch('/api/config');
+                config = await res.json();
+                return true;
+            } catch (err) {
+                showError('Failed to load config. Check Vercel env vars.');
+                return false;
+            }
+        }
+
+        async function init() {
+            const loaded = await loadConfig();
+            if (!loaded) return;
+
+            try {
+                auth0Client = await auth0.createAuth0Client({
+                    domain: config.domain,
+                    clientId: config.clientId,
+                    authorizationParams: {
+                        redirect_uri: window.location.origin
+                    }
+                });
+
+                // Handle Auth0 callback
+                if (window.location.search.includes('code=')) {
+                    await auth0Client.handleRedirectCallback();
+                    window.history.replaceState({}, document.title, '/');
+                }
+
+                updateUI();
+            } catch (err) {
+                showError('Auth init failed: ' + err.message);
+            }
+        }
+
+        async function updateUI() {
+            document.getElementById('loading').style.display = 'none';
+            
+            const isAuth = await auth0Client.isAuthenticated();
+            
+            if (isAuth) {
+                const user = await auth0Client.getUser();
+                document.getElementById('buttons').style.display = 'none';
+                document.getElementById('profile').style.display = 'block';
+                document.getElementById('name').textContent = 'Name: ' + (user.name || user.nickname || 'N/A');
+                document.getElementById('email').textContent = 'Email: ' + (user.email || 'N/A');
+            } else {
+                document.getElementById('buttons').style.display = 'block';
+                document.getElementById('profile').style.display = 'none';
+            }
+        }
+
+        async function signup() {
+            await auth0Client.loginWithRedirect({
+                authorizationParams: {
+                    redirect_uri: window.location.origin,
+                    screen_hint: 'signup'
+                }
+            });
+        }
+
+        async function login() {
+            await auth0Client.loginWithRedirect({
+                authorizationParams: {
+                    redirect_uri: window.location.origin
+                }
+            });
+        }
+
+        async function logout() {
+            await auth0Client.logout({
+                logoutParams: { returnTo: window.location.origin }
+            });
+        }
+
+        function showError(msg) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = msg;
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+  </html>
+  
