@@ -51,8 +51,6 @@
         }
         #profile h3 { color: #667eea; margin-bottom: 10px; }
         #profile p { margin: 4px 0; font-size: 14px; color: #4a5568; }
-        .error { color: #e53e3e; margin-bottom: 16px; font-size: 14px; }
-        .loading { color: #667eea; margin-bottom: 16px; }
     </style>
 </head>
 <body>
@@ -60,10 +58,7 @@
         <h1>🔐 Auth System</h1>
         <p>Secure Login with Auth0</p>
         
-        <div id="loading" class="loading">Loading...</div>
-        <div id="error" class="error" style="display: none;"></div>
-        
-        <div id="buttons" style="display: none;">
+        <div id="buttons">
             <button class="signup" onclick="signup()">Sign Up</button>
             <button class="login" onclick="login()">Log In</button>
         </div>
@@ -77,50 +72,31 @@
     </div>
 
     <script>
-        // Config will be loaded from Vercel API
+        // YOUR CREDENTIALS - Client ID is public and safe to use here
+        const AUTH0_DOMAIN = 'wfseek2008.us.auth0.com';
+        const AUTH0_CLIENT_ID = 'viwLNvxLI35kN4C6Y9XtNthVyNe768oc';
+        
         let auth0Client = null;
-        let config = null;
-
-        async function loadConfig() {
-            try {
-                // Fetch config from Vercel serverless function
-                const res = await fetch('/api/config');
-                config = await res.json();
-                return true;
-            } catch (err) {
-                showError('Failed to load config. Check Vercel env vars.');
-                return false;
-            }
-        }
 
         async function init() {
-            const loaded = await loadConfig();
-            if (!loaded) return;
-
-            try {
-                auth0Client = await auth0.createAuth0Client({
-                    domain: config.domain,
-                    clientId: config.clientId,
-                    authorizationParams: {
-                        redirect_uri: window.location.origin
-                    }
-                });
-
-                // Handle Auth0 callback
-                if (window.location.search.includes('code=')) {
-                    await auth0Client.handleRedirectCallback();
-                    window.history.replaceState({}, document.title, '/');
+            auth0Client = await auth0.createAuth0Client({
+                domain: AUTH0_DOMAIN,
+                clientId: AUTH0_CLIENT_ID,
+                authorizationParams: {
+                    redirect_uri: window.location.origin
                 }
+            });
 
-                updateUI();
-            } catch (err) {
-                showError('Auth init failed: ' + err.message);
+            // Handle callback from Auth0
+            if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
+                await auth0Client.handleRedirectCallback();
+                window.history.replaceState({}, document.title, '/');
             }
+
+            updateUI();
         }
 
         async function updateUI() {
-            document.getElementById('loading').style.display = 'none';
-            
             const isAuth = await auth0Client.isAuthenticated();
             
             if (isAuth) {
@@ -158,15 +134,8 @@
             });
         }
 
-        function showError(msg) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error').textContent = msg;
-        }
-
         // Start
         init();
     </script>
 </body>
-  </html>
-  
+</html>
